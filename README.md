@@ -1,4 +1,4 @@
-#NetworkPlotting
+#Word Ladder
 
 This project was created for my data visualization class during fall 2013 where we needed to explore a network dataset.  For this I chose to 
 use Donald Knuth's world ladder data for five-letter words.  The two html files are a query tool that were built to explore and visualize the dataset.
