@@ -10,3 +10,7 @@ of words via a colorization of the words and also by showing them on a circular 
 ##graph_exploration.html
 Turns out that not all the five-letter words supplied by Knuth can reach one another.  This system shows how many graphs are formed from the words
 and how they are connected.
+
+edges_to_score.png
+In this plot I was comparing the degree of a node in the graph to its score.  A score is defined as the average percentage from each of the words' characters and
+their frequency in English.  This was obtained from [Wikipedia's letter frequency page](http://en.wikipedia.org/wiki/Letter_frequency).
