@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<script type="text/javascript" src="resources/rapheal.min.js"></script>
+<script type="text/javascript" src="resources/wordsByEdge.js"></script>
+
+<script>
+
+
+var ladder = {
+
+		go:function(w1,w2){
+			var result = this.bfs(w1,w2)
+			if(result !== false){
+				return this.parse_breadcrumbs(result)
+			}
+			else{
+				return false
+			}
+		},
+
+		parse_breadcrumbs:function(result){
+			var index = result.index
+			var crumbs = result.bcrumbs
+			var terminate = false
+			var counter = 0
+			var path = []
+			while(!terminate){
+				var string = wordHolder[index].word
+				var parent = crumbs[index].parent
+
+				path.unshift({index:index, word:string})
+
+				if(parent === null){
+					terminate = true
+				}
+				else{
+					index = parent
+				}
+			}
+			return path
+		},
+
+		bfs:function(w1, w2){
+
+
+			//you have their connections, no need for normal bfs
+			for(var i = 0; i < wordHolder.length; i++){
+				var found_index = false
+				if(w1 === wordHolder[i].word){
+					found_index = i
+					break
+				}
+			}
+
+			if(found_index === false){
+				return false
+			}
+
+			var bread_crumbs = {}
+			var queue = []
+			var seen = {}
+			var found  = false
+			queue.push(found_index)
+			bread_crumbs[found_index] = {index:found_index, parent:null}
+			seen[found_index] = true
+			
+			while(queue.length > 0){
+				var current_index = queue.shift(queue)
+				if(wordHolder[current_index].word === w2){
+					found = true
+					break
+				}
+				else{
+					for(var i in wordHolder[current_index].connections){
+						var index = wordHolder[current_index].connections[i]
+						if(!seen.hasOwnProperty(index)){
+							seen[index] = true
+							queue.push(wordHolder[current_index].connections[i])
+							bread_crumbs[index] = {index:index, parent:current_index}	
+						}
+					}
+				}
+			}
+
+			if(found === true){
+				return {index:current_index, bcrumbs:bread_crumbs}
+			}
+			else{
+				return false
+			}
+		}
+	}
+
+
+var words = {}
+var wordToIndex = {}
+for(var i in wordHolder){
+	words[wordHolder[i].word] = wordHolder[i].word
+    wordToIndex[wordHolder[i].word] = i
+}
+
+
+
+
+
+var word_handler = {
+    go_button:null,
+    w1_input:null,
+    w2_input:null,
+    search_results:null,
+
+    init:function(){
+        this.go_button = document.getElementById('go_button')
+        this.w1_input = document.getElementById('word1')
+        this.w2_input = document.getElementById('word2')
+        this.search_results = document.getElementById('search_results')
+
+        var self = this
+        this.go_button.onclick = function(){
+            self.handle_go()
+        }
+    },
+
+    handle_go:function(){
+
+        circle_plot.clear_result()
+
+        var w1 = this.w1_input.value
+        var w2 = this.w2_input.value
+
+        if(w1.length == 5 && w2.length == 5){
+            var word1_exists = words.hasOwnProperty(w1)
+            var word2_exists = words.hasOwnProperty(w2)
+            if(word1_exists === false){
+                alert("The start word does not exist in the system")
+            }
+            else if(word2_exists === false){
+                alert("The end word does not exist in the system")
+            }
+            else{
+
+                var result = ladder.go(w1, w2)
+
+
+                if(result === false){
+                    alert('No connection was found')
+                }
+                else{
+                    
+                    var marked_indices = {}
+
+                    for(var i = 0; i < result.length; i++){
+                        var word1 = result[i].word
+                        if(!marked_indices.hasOwnProperty(word1)){
+                            marked_indices[word1] = []
+                        }
+
+                        if(i != result.length-1){
+                            var word2 = result[i+1].word
+                            if(!marked_indices.hasOwnProperty(word2)){
+                                marked_indices[word2] = []
+                            }
+
+                            for(var j = 0; j < word1.length; j++){
+                                if(word1[j] != word2[j]){
+                                    marked_indices[word1].push({index:j,which:(i%3)})
+                                    marked_indices[word2].push({index:j,which:(i%3)})
+                                }
+                            }
+                        }
+                    }
+
+                    var html = ""
+                    var r_counter = 0
+                    for(var i in result){
+                        var word = result[i].word
+
+                        html += "<div>"
+
+                        for(var j = 0; j < word.length; j++){
+                            var clss = ""
+                            for(var k in marked_indices[word]){
+                                if(marked_indices[word][k].index == j){
+                                    if(marked_indices[word][k].which === 0){
+                                        clss = "one"
+                                    }
+                                    else if(marked_indices[word][k].which === 1){
+                                        clss = "two"
+                                    }
+                                    else{
+                                        clss = "three"
+                                    }
+                                    break
+                                }
+                            }
+
+                            if(clss !== ""){
+                                html += '<span class="'+clss+'">'+word[j]+'</span>'
+                            }
+                            else{
+                                html += word[j]
+                            }
+                        }
+
+                        html += "</div>"
+                        r_counter++
+                    }
+
+                    document.getElementById('search_results').innerHTML = html
+                }
+                
+                circle_plot.draw_result(result)
+            }
+        }
+        else{
+            alert("The words entered must be 5 characters in length")
+        }
+    }
+}
+
+
+var circle_plot = {
+
+    r:null,
+    on_top_objs:[],
+    point_widths:18,
+
+    draw:function(){
+        var width = 1000 + (2*this.point_widths)
+        var height = 1000 + (2*this.point_widths)
+        this.r = Raphael("holder", width, height)
+
+        var radius = 500
+        var points = wordHolder.length
+        var step = ((3.141592654 * 2) / points)
+        var current = 0
+        var center = radius
+
+        for(var i = 0; i < points; i++){
+            var x = Math.sin(current) * radius
+            var y = Math.cos(current) * radius
+
+            x += radius + this.point_widths
+            y += radius + this.point_widths
+
+            wordHolder[i].x = x
+            wordHolder[i].y = y
+
+            current += step
+        }
+
+        var counter = 0;
+        for(var i = 0; i < points; i++){
+            for(var j = 0; j < wordHolder[i].connections.length; j++){
+
+                var path = "M "+wordHolder[i].x+" "+wordHolder[i].y
+                path += " L "+wordHolder[wordHolder[i].connections[j]].x+" "+wordHolder[wordHolder[i].connections[j]].y
+                
+                var p = this.r.path(path)
+                p.attr({
+                    "stroke":'#000',
+                    "stroke-opacity":0.05
+                })
+            }
+        }
+    },
+
+    draw_result:function(result){
+        for(var i = 0; i < result.length-1; i++){
+            var item1 = wordHolder[result[i].index]
+            var item2 = wordHolder[result[i+1].index]
+            var item_text = "M "+item1.x+" "+item1.y+" L "+item2.x+" "+item2.y
+            var path = this.r.path(item_text)
+
+            var stroke = "#85D1D6"
+            path.attr({
+                "stroke":stroke,
+                "stroke-width":2,
+                "title":(item1.word+" - "+item2.word)
+            })
+            this.on_top_objs.push(path)
+        }
+
+        for(var i = 0; i < result.length; i++){
+            var item = wordHolder[result[i].index]
+            var circ = this.r.circle(item.x, item.y, this.point_widths)
+            var fill_color = "#85D1D6"
+            var stroke_color = "#5E898C"
+            if(i == 0){
+                fill_color = "#F2F25E"
+                stroke_color = "#677D56"
+            }
+            else if(i == (result.length-1)){
+                fill_color = "#EB49E0"
+                stroke_color = "#872B81"   
+            }
+            circ.attr({
+                "stroke":stroke_color,
+                "fill":fill_color,
+                "stroke-width":2,
+                "title":(item.word)
+            })
+            this.on_top_objs.push(circ)
+
+            var text = this.r.text(item.x, item.y, item.word)
+            this.on_top_objs.push(text)            
+        }
+    },
+
+    clear_result:function(){
+        for(var i = 0; i < this.on_top_objs.length; i++){
+            this.on_top_objs[i].remove()
+        }
+        this.on_top_objs = []
+    }
+    
+}
+
+
+window.onload = function () {
+    word_handler.init()
+    circle_plot.draw()
+}
+
+</script>
+
+<style>
+
+body{
+    background-color:#FFF;
+}
+
+h1{
+    color:#fff;
+}
+
+#holder{
+	border:1px solid #fff; 
+    border-radius:25px;
+	margin-bottom: 40px;
+    margin-left:30px;
+    padding:15px;
+    background-color:#fff;
+}
+
+.fleft{
+	float:left;
+}
+
+label, input{
+	display:block;
+}
+
+input{
+    padding:3px 5px;
+	margin-bottom:10px;
+    border-radius: 5px;
+}
+
+button{
+    cursor: pointer;
+    font-size: 100%;
+    padding: .25em 1em;
+    color: #444;
+    color: rgba(0,0,0,.8);
+    border: 1px solid #999;
+    border: 0 rgba(0,0,0,0);
+    background-color: #E6E6E6;
+    text-decoration: none;
+    border-radius: 2px;
+    -webkit-transition: .1s linear -webkit-box-shadow;
+    -moz-transition: .1s linear -moz-box-shadow;
+    -ms-transition: .1s linear box-shadow;
+    -o-transition: .1s linear box-shadow;
+    transition: .1s linear box-shadow;
+}
+
+
+.search_container{
+	margin-bottom: 20px;
+    color:#FFF;
+}
+
+.lcontainer{
+	margin-right:40px;
+	margin-left:40px;
+    height:1000px;
+    background-color:#333;
+    padding:20px;
+    border-radius: 5px;
+    box-shadow: 5px 5px 3px #888888;
+}
+
+#search_results{
+    font-family:"Courier New", Courier, monospace;
+    font-size: 22px;
+    text-align:center;
+    color:#FFF;
+    padding:10px;
+}
+
+#search_results span.one{
+    color:#FF6363;
+    font-weight: bold;
+}
+
+#search_results span.two{
+    font-weight: bold;
+    color:#63FF63;
+}
+
+#search_results span.three{
+    font-weight: bold;
+    color:#6363FF;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="fleft lcontainer">
+	<div class="search_container">
+        <h1>Word Ladder</h1>
+		<label for="word1">Start Word</label>
+		<input id="word1" maxlength="5" value=""/>
+		<label for="word2">End Word</label>
+		<input id="word2" maxlength="5" value=""/>
+		<button id="go_button">Go!</button>
+	</div>
+
+	<div id="search_results">
+
+	</div>
+</div>
+
+<div id="holder" class="fleft"></div>
+
+<div style="clear:left;"></div>
+
+
+
+
+</body>
+
+</html>
+

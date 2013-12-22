@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Graphs</title>
+
+<script src="resources/words.js" type="text/javascript"></script>
+<script src="resources/jquery-1.10.2.min.js" type="text/javascript"></script>
+<script type="text/javascript" src="resources/rapheal.min.js"></script>
+
+<script>
+
+
+
+var seen = {}
+var graphs = []
+var queue = []
+var current_graph_index = 0
+
+var global_counter = 0
+
+var dobfs = function(startIndex){
+
+	queue.push(startIndex)
+	seen[startIndex] = true
+	graphs[current_graph_index][startIndex] = startIndex
+	//wordHolder[startIndex].graphNumber = current_graph_index
+	
+	while(queue.length > 0){
+		var current_index = queue.shift(queue)
+		
+		for(var i in wordHolder[current_index].connections){
+			var index = wordHolder[current_index].connections[i]
+			if(!seen.hasOwnProperty(index)){
+				seen[index] = true
+				queue.push(wordHolder[current_index].connections[i])	
+				graphs[current_graph_index][wordHolder[current_index].connections[i]] = wordHolder[current_index].connections[i]
+				//wordHolder[index].graphNumber = current_graph_index
+				global_counter++
+			}
+		}
+	}
+}
+
+
+while(true){
+	var foundIndex = false
+	for(var i = 0; i < wordHolder.length; i++){
+		if(!seen.hasOwnProperty(i)){
+			graphs[current_graph_index] = {}
+			dobfs(i)
+			foundIndex = true
+			current_graph_index++
+			break;
+		}
+	}
+
+	if(foundIndex == false){
+		break;
+	}
+}
+
+
+var count_graph_sizes = function(graphs){
+	
+	var counts = {}
+	for(var i = 0; i < graphs.length; i++){
+		var counter = 0
+		for(var j in graphs[i]){
+			counter++
+		}
+
+		if(!counts.hasOwnProperty(counter)){
+			counts[counter] = 1
+		}
+		else{
+			counts[counter]++
+		}
+	}
+	return counts
+}
+
+
+var counts = count_graph_sizes(graphs)
+
+var counter = 0
+for(var i in counts){
+	
+	counter += parseInt(i) * counts[i]
+}
+
+
+var new_graphs = {}
+for(var i = 0; i < graphs.length; i++){
+	var count = 0
+	for(var p in graphs[i]){
+		count++
+	}
+	
+	if(!new_graphs.hasOwnProperty(count)){
+		new_graphs[count] = []
+	}
+	new_graphs[count].push(graphs[i])
+}
+
+
+var draw_graph = {
+
+	r:null,
+	point_widths:18,
+	radius:0,
+	draw_objects:[],
+	is_loading:false,
+
+
+	init:function(){
+		var width = 1000 + (2*this.point_widths)
+        var height = 1000 + (2*this.point_widths)
+        this.r = Raphael("holder", width, height)
+        this.radius = 500
+	},
+
+	clear_graph:function(){
+		for(var i in this.draw_objects){
+			this.draw_objects[i].remove()
+		}
+
+		this.draw_objects = []
+	},
+
+	draw:function(graph_id){
+
+		if(this.is_loading == false){
+
+			this.clear_graph()
+
+			this.is_loading = true
+
+			var parts = graph_id.split('-')
+			var graph_to_draw = new_graphs[parts[0]][parts[1]]
+
+			var points = 0
+			for(var i in graph_to_draw){
+				points++
+			}
+
+	        var step = ((3.141592654 * 2) / points)
+	        var current = 0
+	        var radius = this.radius
+	        var center = radius
+
+	        for(var i in graph_to_draw){
+	        	var index = graph_to_draw[i]
+	        	
+
+	       	    var x = Math.sin(current) * radius
+	            var y = Math.cos(current) * radius
+
+	            x += radius + this.point_widths
+	            y += radius + this.point_widths
+
+	            wordHolder[index].x = x
+	            wordHolder[index].y = y
+
+	            current += step
+	        }
+
+	        var stroke_opacity = 0.5
+	        if(points > 100){
+	        	stroke_opacity = 0.05
+	        }
+
+	        for(var i in graph_to_draw){
+	        	var index = graph_to_draw[i]
+	        	for(var j in wordHolder[index].connections){
+	        		var path = "M "+wordHolder[index].x+" "+wordHolder[index].y
+	                path += " L "+wordHolder[wordHolder[index].connections[j]].x+" "+wordHolder[wordHolder[index].connections[j]].y
+	                
+	                var p = this.r.path(path)
+	                p.attr({
+	                    "stroke":'#000',
+	                    "title":(wordHolder[index].word+" - "+wordHolder[wordHolder[index].connections[j]].word),
+	                    "stroke-width":1,
+	                    "stroke-opacity":stroke_opacity
+	                })
+	                this.draw_objects.push(p)
+	        	}
+	        }
+
+	        if(points < 100){
+	        	 for(var i in graph_to_draw){
+		        	var index = graph_to_draw[i]
+
+		        	var circ = this.r.circle(wordHolder[index].x, wordHolder[index].y, this.point_widths)
+		            circ.attr({
+		                "fill":'#CCCCCC',
+		                "stroke":'#888888',
+		                "title":wordHolder[index].word
+		            })
+		            this.draw_objects.push(circ)
+
+		            var text = this.r.text(wordHolder[index].x, wordHolder[index].y, wordHolder[index].word)
+		            this.draw_objects.push(text)
+		        }
+	        }
+	       
+
+	        this.is_loading = false
+		}
+		
+	}
+}
+
+
+
+window.onload = function(){		
+
+	draw_graph.init()
+
+	var aloof_html = "<ul>"
+	for(var i in new_graphs[1]){
+		for(var j in new_graphs[1][i]){
+			aloof_html += '<li>'+wordHolder[new_graphs[1][i][j]].word+'</li>'
+		}
+	}
+	aloof_html += "</ul>"
+
+	$('#aloof_holder').html(aloof_html)
+
+
+	var html = ""
+	html += '<div class="aloof_select pointer">Aloofs</div>'
+	
+	var counter = 0
+	for(var i in new_graphs){
+		if(counter > 0){
+			html += "<div>"
+			html += "<div class='button_select pointer' to_open='"+i+"'>"+i+" - Node Graphs </div>"
+			html += "<div id='open_"+i+"' style='display:none;'>"
+			var counter = 1
+			for(var j in new_graphs[i]){
+				html += '<div class="selected_graph pointer" graph_id="'+i+'-'+j+'"/>Graph '+i+"-"+counter+'</div>'
+				counter++
+			}
+			html += "</div>"
+			html += "</div>"
+		}
+		counter++
+	}
+
+	document.getElementById('button_selection').innerHTML = html
+	
+	$('.button_select').click(function(){
+		var to_open = "open_"+$(this).attr('to_open')
+		$('#'+to_open).toggle()
+	})
+
+	$('.aloof_select').click(function(){
+		$('#aloof_holder').show()
+		$('#holder').hide()
+
+		$('.selected').removeClass('selected')
+		$(this).addClass('selected')
+	})
+
+	$('.selected_graph').click(function(){
+		$('#aloof_holder').hide()
+		$('#holder').show()
+
+		$('.selected').removeClass('selected')
+		$(this).addClass('selected')
+		draw_graph.draw($(this).attr('graph_id'))
+	})
+}
+
+
+</script>
+
+
+<style>
+
+h1{
+	color:#333;
+	margin-bottom:30px;
+}
+
+body{
+	margin-top:40px;
+	margin-left:40px;
+}
+
+.pointer{
+	cursor:pointer;
+}
+.left_container{
+	min-width:140px;
+	min-height:800px;
+	margin-right:40px;
+}
+
+.button_select_last{
+	border-bottom-left-radius:5px;
+	border-bottom-right-radius:5px;
+}
+
+.button_select,.aloof_select{
+	border-bottom:1px solid #666;
+	border-left:1px solid #666;
+	border-right:1px solid #666;
+	padding:3px 10px;
+}
+
+.aloof_select{
+	border-top:1px solid #666;
+	border-top-left-radius:5px;
+	border-top-right-radius:5px;
+}
+
+
+.selected_graph{
+	padding:5px 10px 5px 30px;
+	border-right:1px solid #666;
+	border-left:1px solid #666;
+	border-bottom:1px dotted #666;
+}
+
+.selected{
+	background-color:#ABE4EB;
+}
+
+
+.right_container{
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>Graph Exploration of Word Ladder Data</h1>
+
+<div class="left_container" style="float:left" id="button_selection">
+	
+</div>
+
+
+<div class="right_container"  style="float:left">
+	<div id="holder"></div>
+	<div id="aloof_holder" style="display:none">heyo</div>
+</div>
+
+<div style="clear:left"></div>
+
+</body>
+
+</html>
